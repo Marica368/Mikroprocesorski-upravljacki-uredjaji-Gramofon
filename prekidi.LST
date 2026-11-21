@@ -1,0 +1,30 @@
+C51 COMPILER V8.16   PREKIDI                                                               06/01/2025 16:55:03 PAGE 1   
+
+
+C51 COMPILER V8.16, COMPILATION OF MODULE PREKIDI
+OBJECT MODULE PLACED IN prekidi.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE prekidi.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "prekidi.h"
+   2          #include "at89c51rc2.h"
+   3          
+   4          void omoguci_sve_prekide(void)
+   5          {
+   6   1              EA = 1;
+   7   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =      3    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

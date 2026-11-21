@@ -1,0 +1,274 @@
+C51 COMPILER V8.16   DISPLAY                                                               06/01/2025 16:55:03 PAGE 1   
+
+
+C51 COMPILER V8.16, COMPILATION OF MODULE DISPLAY
+OBJECT MODULE PLACED IN display.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE display.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "display.h"
+   2          #include <intrins.h>
+   3          
+   4          void initP1P3(void)
+   5          {
+   6   1              // inicijalizacija portova koji se koriste za lcd
+   7   1              P1 = 0xE0;
+   8   1              P3 = 0xF9;
+   9   1      }
+  10          void wait1s(void)
+  11          {
+  12   1              // posle inicijalizacije portova se ceka 1 sekund
+  13   1              uint8_t i;
+  14   1      
+  15   1              TMOD = (TMOD&0xF0) | 0x01;      // TMOD TIMER0 U 16 BITNOM REZIMU
+  16   1              for(i = 0; i < 200; i++)
+  17   1              {
+  18   2                      TH0 = 0xEE;             //5ms
+  19   2                      TL0 = 0x00;             //2 razlicita tajmera
+  20   2                      TR0 = 1;                //jedan se koristi za lcd - za njega nisu omoguceni prekidi
+  21   2                      while(!TF0)
+  22   2                      {
+  23   3                      }
+  24   2                      TF0 = 0;
+  25   2              }
+  26   1              
+  27   1      }  
+  28          void wait50micro(void)
+  29          {
+  30   1                      
+  31   1                TH0 = 0xFF;       
+  32   1                TL0 = 0xD2;
+  33   1                TR0 = 1;                      //isto kao prethodna samo sto brojis samo 50 mikrosekundi i to samo jednom!
+  34   1                while(!TF0)
+  35   1                {
+  36   2                }
+  37   1                TF0 = 0;
+  38   1      }  
+  39          void wait2ms(void)
+  40          {
+  41   1      
+  42   1              TH0 = 0xF8; //isto kao prethodno samo brojis 2ms
+  43   1              TL0 = 0xCD;
+  44   1              TR0 = 1;
+  45   1              while (!TF0)
+  46   1              {
+  47   2              }
+  48   1              TF0 = 0;
+  49   1      }  
+  50          void initDisplay(void)   // ovo je inicijalizacija displeja na cetvorobitni rezim rada.
+  51          {       
+  52   1              initP1P3();
+  53   1      
+  54   1              wait1s();
+  55   1      
+C51 COMPILER V8.16   DISPLAY                                                               06/01/2025 16:55:03 PAGE 2   
+
+  56   1              LCD_RS = 0;             // functionset
+  57   1              LCD_EN = 1;
+  58   1              LCD_D7 = 0;
+  59   1              LCD_D6 = 0;             // kada se inicijalizuje lcd i kada mu se salju naredbe to se radi ovako:
+  60   1              LCD_D5 = 0;
+  61   1              LCD_D4 = 0;             // postavlja se RS na nulu. (RS=1 SAMO KADA SE SALJU PODACI ZA ISPIS NA LCD)
+  62   1              LCD_EN = 0;             // posalju se gornja 4 bita naredbe, svaki put kad se salju 4 bita ide EN=1; pa se postave p
+             -odaci na pinove porta P1; pa EN=0;
+  63   1                                              //  ceka se _nop_() - to je funkcija za cekanje- i onda se salju donja 4 bita na isti nacin.
+  64   1              wait50micro();
+  65   1      
+  66   1              LCD_RS = 0;
+  67   1              LCD_EN = 1;
+  68   1              LCD_D7 = 0;
+  69   1              LCD_D6 = 0;
+  70   1              LCD_D5 = 1;
+  71   1              LCD_D4 = 0;
+  72   1              LCD_EN = 0;
+  73   1      
+  74   1              _nop_();
+  75   1      
+  76   1              LCD_RS = 0;
+  77   1              LCD_EN = 1;
+  78   1              LCD_D7 = 1;
+  79   1              LCD_D6 = 0;
+  80   1              LCD_D5 = 0;
+  81   1              LCD_D4 = 0;
+  82   1              LCD_EN = 0;
+  83   1      
+  84   1              wait50micro();
+  85   1      
+  86   1              // display on, cursor on, blink on
+  87   1              LCD_RS = 0;
+  88   1              LCD_EN = 1;
+  89   1              LCD_D7 = 0;
+  90   1              LCD_D6 = 0;
+  91   1              LCD_D5 = 0;
+  92   1              LCD_D4 = 0;
+  93   1              LCD_EN = 0;
+  94   1      
+  95   1              _nop_();
+  96   1      
+  97   1              LCD_RS = 0;
+  98   1              LCD_EN = 1;
+  99   1              LCD_D7 = 1;
+ 100   1              LCD_D6 = 1;
+ 101   1              LCD_D5 = 1;
+ 102   1              LCD_D4 = 1;
+ 103   1              LCD_EN = 0;
+ 104   1      
+ 105   1              wait50micro();
+ 106   1      
+ 107   1              // display clear
+ 108   1              LCD_RS = 0;
+ 109   1              LCD_EN = 1;
+ 110   1              LCD_D7 = 0;
+ 111   1              LCD_D6 = 0;
+ 112   1              LCD_D5 = 0;
+ 113   1              LCD_D4 = 0;
+ 114   1              LCD_EN = 0;
+ 115   1      
+ 116   1              _nop_();
+C51 COMPILER V8.16   DISPLAY                                                               06/01/2025 16:55:03 PAGE 3   
+
+ 117   1      
+ 118   1              LCD_RS = 0;
+ 119   1              LCD_EN = 1;
+ 120   1              LCD_D7 = 0;
+ 121   1              LCD_D6 = 0;
+ 122   1              LCD_D5 = 0;
+ 123   1              LCD_D4 = 1;
+ 124   1              LCD_EN = 0;
+ 125   1      
+ 126   1              wait2ms();
+ 127   1              wait2ms();
+ 128   1      
+ 129   1              LCD_RS = 0;
+ 130   1              LCD_EN = 1;
+ 131   1              LCD_D7 = 0;
+ 132   1              LCD_D6 = 0;
+ 133   1              LCD_D5 = 0;
+ 134   1              LCD_D4 = 0;
+ 135   1              LCD_EN = 0;
+ 136   1      
+ 137   1              _nop_();
+ 138   1      
+ 139   1              LCD_RS = 0;
+ 140   1              LCD_EN = 1;
+ 141   1              LCD_D7 = 0;
+ 142   1              LCD_D6 = 1;
+ 143   1              LCD_D5 = 1;
+ 144   1              LCD_D4 = 0;
+ 145   1              LCD_EN = 0;
+ 146   1      
+ 147   1              wait50micro();
+ 148   1      
+ 149   1              wait2ms();
+ 150   1              LCD_BL = 1;
+ 151   1      
+ 152   1      } 
+ 153          void clearDisplay(void)   // funkcija koja brise sve sto pise na displeju
+ 154          {
+ 155   1              LCD_RS = 0;
+ 156   1              LCD_EN = 1;
+ 157   1              LCD_D7 = 0;
+ 158   1              LCD_D6 = 0;
+ 159   1              LCD_D5 = 0;
+ 160   1              LCD_D4 = 0;
+ 161   1              LCD_EN = 0;
+ 162   1      
+ 163   1              _nop_();
+ 164   1      
+ 165   1              LCD_RS = 0;
+ 166   1              LCD_EN = 1;
+ 167   1              LCD_D7 = 0;
+ 168   1              LCD_D6 = 0;
+ 169   1              LCD_D5 = 0;
+ 170   1              LCD_D4 = 1;
+ 171   1              LCD_EN = 0;
+ 172   1      
+ 173   1              wait2ms();
+ 174   1              wait2ms();
+ 175   1      
+ 176   1      }          
+ 177          void newLine(void)      // funkcija za prelazak u novi red na lcdu
+ 178          {
+C51 COMPILER V8.16   DISPLAY                                                               06/01/2025 16:55:03 PAGE 4   
+
+ 179   1              LCD_RS = 0;
+ 180   1              LCD_EN = 1;
+ 181   1              LCD_D7 = 1;
+ 182   1              LCD_D6 = 1;
+ 183   1              LCD_D5 = 0;
+ 184   1              LCD_D4 = 0;
+ 185   1              LCD_EN = 0;
+ 186   1      
+ 187   1              _nop_();
+ 188   1      
+ 189   1              LCD_RS = 0;
+ 190   1              LCD_EN = 1;
+ 191   1              LCD_D7 = 0;
+ 192   1              LCD_D6 = 0;
+ 193   1              LCD_D5 = 0;
+ 194   1              LCD_D4 = 0;
+ 195   1              LCD_EN = 0;
+ 196   1      
+ 197   1              wait2ms();
+ 198   1              wait2ms();
+ 199   1      }         
+ 200          bit getbit(uint8_t n, uint8_t k)        // funkcija koja vraca bit koji se nalazi na poziciji n
+ 201          {
+ 202   1              uint8_t mask = 1 << k;    // ova funkcija se koristi za ispisivanje karaktera na lcd
+ 203   1              uint8_t masked_n = n & mask; // za svaki karakter se cita svih 8 bita i salju se na lcd u funkciji writeC
+             -har
+ 204   1              bit thebit = masked_n >> k;
+ 205   1              return thebit;
+ 206   1      }       
+ 207          void writeChar(uint8_t karakter)  // funkcija koja pise 1 karakter na displej- uzima bite iz karaktera i s
+             -alje ih na displej
+ 208          {
+ 209   1              LCD_RS = 1;
+ 210   1              LCD_EN = 1;
+ 211   1              LCD_D7 = getbit(karakter, 7);
+ 212   1              LCD_D6 = getbit(karakter, 6);
+ 213   1              LCD_D5 = getbit(karakter, 5);
+ 214   1              LCD_D4 = getbit(karakter, 4);
+ 215   1              LCD_EN = 0;
+ 216   1      
+ 217   1              _nop_();
+ 218   1      
+ 219   1              LCD_EN = 1;
+ 220   1              LCD_D7 = getbit(karakter, 3);
+ 221   1              LCD_D6 = getbit(karakter, 2);
+ 222   1              LCD_D5 = getbit(karakter, 1);
+ 223   1              LCD_D4 = getbit(karakter, 0);
+ 224   1              LCD_EN = 0;
+ 225   1      
+ 226   1              wait50micro();
+ 227   1      }       
+ 228          void writeLine(uint8_t *poruka) // funkcija koja pise jedan string na displej - iterira kroz string i pozi
+             -va funkciju writeChar za svako slovo
+ 229          {
+ 230   1              uint8_t n = 0;
+ 231   1              while(poruka[n] != '\0')
+ 232   1              {
+ 233   2                      writeChar(poruka[n]);
+ 234   2                      n++;
+ 235   2              }       
+ 236   1      }        
+ 237            
+C51 COMPILER V8.16   DISPLAY                                                               06/01/2025 16:55:03 PAGE 5   
+
+ 238          // u prvom redu start ili stop
+ 239          // u drugom redu mod 1 2 3 ili 4
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    407    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       4
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,100 @@
+C51 COMPILER V8.16   SERIJSKA                                                              06/01/2025 16:55:03 PAGE 1   
+
+
+C51 COMPILER V8.16, COMPILATION OF MODULE SERIJSKA
+OBJECT MODULE PLACED IN serijska.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE serijska.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "serijska.h"
+   2          #include "tipovi.h"
+   3          #include "at89c51rc2.h"
+   4          #include "cobs_protokol.h"
+   5          
+   6          uint8_t* bafer_za_slanje;
+   7          uint8_t bafer_za_prijem[KAPACITET_BAFERA];
+   8          uint8_t indeks_upis = 0;
+   9          uint8_t kraj = 0;
+  10          
+  11          void init_serijska(uint8_t PCON_reg, uint8_t SCON_reg, uint8_t BDRCON_reg, uint8_t BRL_reg) {
+  12   1              PCON &= 0x3F;
+  13   1              PCON |= PCON_reg & 0xC0;
+  14   1      
+  15   1              SCON &= 0x0F;
+  16   1              SCON |= SCON_reg & 0xF0;
+  17   1                              
+  18   1              BDRCON &= 0xE0;
+  19   1              BDRCON |= BDRCON_reg & 0x1F;
+  20   1      
+  21   1              BRL = BRL_reg;
+  22   1      }
+  23          
+  24          void omoguci_prekid_serijske(uint8_t omogucen_prekid) {
+  25   1              ES = omogucen_prekid & 0x01;
+  26   1      }
+  27          
+  28          void serijska_prekid(void) interrupt 4 {
+  29   1              if (TI) {
+  30   2                      TI = 0;
+  31   2                      
+  32   2                      if (!kraj) {
+  33   3                              if (*(++bafer_za_slanje) == KRAJ_PORUKE) {
+  34   4                                      kraj = 1;
+  35   4                              }
+  36   3                              
+  37   3                              SBUF = *bafer_za_slanje;
+  38   3                      }
+  39   2              }
+  40   1              else if(RI) {
+  41   2              
+  42   2                      uint8_t primljeni_bajt;
+  43   2      
+  44   2                      RI = 0;
+  45   2      
+  46   2                      primljeni_bajt = SBUF;
+  47   2      
+  48   2                      bafer_za_prijem[indeks_upis] = primljeni_bajt;
+  49   2      
+  50   2                      if (primljeni_bajt == KRAJ_PORUKE) {
+  51   3                              if (bafer_za_prijem[0] != KRAJ_PORUKE) {
+  52   4                                      parsiraj_poruku(bafer_za_prijem);
+  53   4                              }
+  54   3                              isprazni_bafer();
+  55   3                      }
+C51 COMPILER V8.16   SERIJSKA                                                              06/01/2025 16:55:03 PAGE 2   
+
+  56   2                      else {
+  57   3                              indeks_upis = (indeks_upis + 1) % KAPACITET_BAFERA;
+  58   3                      }
+  59   2              }
+  60   1      }
+  61          
+  62          void posalji_poruku(uint8_t* poruka, uint8_t duzina_poruke) {
+  63   1              kraj = 0;
+  64   1              bafer_za_slanje = kodiraj_poruku(poruka, duzina_poruke);
+  65   1              SBUF = *bafer_za_slanje;
+  66   1      }
+  67          
+  68          void isprazni_bafer() {
+  69   1              uint8_t i = 0;
+  70   1              for (i = 0; i < KAPACITET_BAFERA; i++) {
+  71   2                      bafer_za_prijem[i] = 0x00;
+  72   2              }
+  73   1      
+  74   1              indeks_upis = 0;
+  75   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    217    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     25       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

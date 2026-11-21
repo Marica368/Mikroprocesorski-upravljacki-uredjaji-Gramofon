@@ -1,0 +1,142 @@
+C51 COMPILER V8.16   COBS_PROTOKOL                                                         06/01/2025 16:55:03 PAGE 1   
+
+
+C51 COMPILER V8.16, COMPILATION OF MODULE COBS_PROTOKOL
+OBJECT MODULE PLACED IN cobs_protokol.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE cobs_protokol.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "cobs_protokol.h"
+   2          #include "serijska.h"
+   3          /*------------------------------PORUKE----------------------------------------------
+   4          Odgovor OK-----> dekodirano-> 0x01--------> kodirano-> 0x02 0x01 0x00
+   5          Odgovor GRESKA-> dekodirano-> 0x00--------> kodirano-> 0x01 0x01 0x00
+   6          START----------> dekodirano-> 0x01 0x01---> kodirano-> 0x03 0x01 0x01 0x00
+   7          STOP-----------> dekodirano-> 0x01 0x00---> kodirano-> 0x02 0x01 0x01 0x00
+   8          N:0------------> dekodirano-> 0x02 0x00---> kodirano-> 0x02 0x02 0x01 0x00
+   9          N:1------------> dekodirano-> 0x02 0x01---> kodirano-> 0x03 0x02 0x01 0x00
+  10          N:2------------> dekodirano-> 0x02 0x02---> kodirano-> 0x03 0x02 0x02 0x00
+  11          N:3------------> dekodirano-> 0x02 0x03---> kodirano-> 0x03 0x02 0x03 0x00
+  12          N:4------------> dekodirano-> 0x02 0x04---> kodirano-> 0x03 0x02 0x04 0x00
+  13          N:5------------> dekodirano-> 0x02 0x05---> kodirano-> 0x03 0x02 0x05 0x00
+  14          N:6------------> dekodirano-> 0x02 0x06---> kodirano-> 0x03 0x02 0x06 0x00
+  15          N:7------------> dekodirano-> 0x02 0x07---> kodirano-> 0x03 0x02 0x07 0x00
+  16          N:8------------> dekodirano-> 0x02 0x08---> kodirano-> 0x03 0x02 0x08 0x00
+  17          N:9------------> dekodirano-> 0x02 0x09---> kodirano-> 0x03 0x02 0x09 0x00
+  18          --------------------------------------------------------------*/
+  19          uint8_t start_flag = 0;
+  20          uint8_t nitna_flag = 0;
+  21          
+  22          uint8_t odgovor_OK[] = {0x01};
+  23          uint8_t odgovor_GRESKA[] = {0x00};
+  24          
+  25          uint8_t* kodiraj_poruku(uint8_t* poruka, uint8_t duzina_poruke) {
+  26   1              uint8_t i, indeks_za_upis_nule = 0;
+  27   1              uint8_t kodirana_poruka[MAKS_DUZINA_PORUKE];
+  28   1      
+  29   1              for(i = 0; i < duzina_poruke; i++){
+  30   2                      // Ukoliko je trenutni bajt 0, na mesto
+  31   2                      // prethodne 0 se upisuje broj bajtova izmedju
+  32   2                      // prethodne i trenutne 0 
+  33   2                      if(poruka[i] == 0){
+  34   3                              kodirana_poruka[indeks_za_upis_nule] = (i + 1) - indeks_za_upis_nule;
+  35   3                              indeks_za_upis_nule = i + 1;
+  36   3                      }
+  37   2                      else {
+  38   3                              kodirana_poruka[i + 1] = poruka[i];
+  39   3                      }
+  40   2              }
+  41   1              kodirana_poruka[indeks_za_upis_nule] = (duzina_poruke + 1) - indeks_za_upis_nule;
+  42   1              kodirana_poruka[duzina_poruke+1] = 0;
+  43   1      
+  44   1              return kodirana_poruka;
+  45   1      }
+  46          
+  47          uint8_t* dekodiraj_poruku(uint8_t* kodirana_poruka) {
+  48   1              uint8_t dekodirana_poruka[MAKS_DUZINA_PORUKE];
+  49   1              uint8_t duzina_poruke = 0, i = 0, j = 0, pozicija_nule;
+  50   1      
+  51   1              while (kodirana_poruka[i] != KRAJ_PORUKE) {
+  52   2                      duzina_poruke++;
+  53   2                      i++;
+  54   2              }
+  55   1              duzina_poruke++;
+C51 COMPILER V8.16   COBS_PROTOKOL                                                         06/01/2025 16:55:03 PAGE 2   
+
+  56   1      
+  57   1              pozicija_nule = kodirana_poruka[0];
+  58   1              for (i = 1; i < duzina_poruke; i++) {
+  59   2                      if (i == pozicija_nule) {
+  60   3                              dekodirana_poruka[j++] = 0x00;
+  61   3                              pozicija_nule = i + kodirana_poruka[i];
+  62   3                      }
+  63   2                      else {
+  64   3                              dekodirana_poruka[j++] = kodirana_poruka[i];
+  65   3                      }
+  66   2              }
+  67   1      
+  68   1              return dekodirana_poruka;
+  69   1      }
+  70          
+  71          void parsiraj_poruku(uint8_t* poruka) {
+  72   1              uint8_t* dekodirana_poruka = dekodiraj_poruku(poruka);
+  73   1      
+  74   1              if(dekodirana_poruka[0]==0x01 && dekodirana_poruka[1]==0x00){
+  75   2                      start_flag = 0;
+  76   2                      posalji_poruku(odgovor_OK, 1);
+  77   2                      //STOP
+  78   2              }else if(dekodirana_poruka[0]==0x01 && dekodirana_poruka[1]==0x01){
+  79   2                      start_flag = 1;
+  80   2                      posalji_poruku(odgovor_OK, 1);
+  81   2                      //START
+  82   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x00){
+  83   2                      nitna_flag = 0;
+  84   2                      posalji_poruku(odgovor_OK, 1);          
+  85   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x01){
+  86   2                      nitna_flag = 1;
+  87   2                      posalji_poruku(odgovor_OK, 1);          
+  88   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x02){
+  89   2                      nitna_flag = 2;
+  90   2                      posalji_poruku(odgovor_OK, 1);          
+  91   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x03){
+  92   2                      nitna_flag = 3;
+  93   2                      posalji_poruku(odgovor_OK, 1);          
+  94   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x04){
+  95   2                      nitna_flag = 4;
+  96   2                      posalji_poruku(odgovor_OK, 1);          
+  97   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x05){
+  98   2                      nitna_flag = 5;
+  99   2                      posalji_poruku(odgovor_OK, 1);          
+ 100   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x06){
+ 101   2                      nitna_flag = 6;
+ 102   2                      posalji_poruku(odgovor_OK, 1);          
+ 103   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x07){
+ 104   2                      nitna_flag = 7;
+ 105   2                      posalji_poruku(odgovor_OK, 1);          
+ 106   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x08){
+ 107   2                      nitna_flag = 8;
+ 108   2                      posalji_poruku(odgovor_OK, 1);          
+ 109   2              }else if(dekodirana_poruka[0]==0x02 && dekodirana_poruka[1]==0x09){
+ 110   2                      nitna_flag = 9;
+ 111   2                      posalji_poruku(odgovor_OK, 1);          
+ 112   2              }else {
+ 113   2                      posalji_poruku(odgovor_GRESKA, 1);
+ 114   2              }
+ 115   1      }
+
+
+C51 COMPILER V8.16   COBS_PROTOKOL                                                         06/01/2025 16:55:03 PAGE 3   
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    552    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4      52
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,353 @@
+C51 COMPILER V8.16   MAIN                                                                  06/01/2025 16:55:03 PAGE 1   
+
+
+C51 COMPILER V8.16, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /*
+   2          GRAMOFON 1
+   3          Implemetirati program za upravljanje maketom gramofona. Gramofon ima jedan ulaz i dva izlaza.
+   4          Ulaz:  
+   5                  Start sistema  
+   6          Izlazi:                    
+   7                  [P0_2] Prolazak nitne ispod induktivnog davaca
+   8                  [P0_3] Detektovan krug motora
+   9          
+  10          Uredjaj moze da radi u dva moda:
+  11                  1) Brojanje nitni - Uredjaj se startuje i svaki put kad detektuje krug motora na displeju ispise broj
+  12          nitni na gramofonu kao i vreme za koje napravi pun krug.
+  13                  2) Pomeranje gramofona za odreden broj nitni - Uredjaju se posalje komanda da se pomeri za
+  14          odredjeni broj nitni. Na displeju ispisati vreme (stavio zastitu da to sme da bude max 60s) za koje se 
+  15          gramofon pomerao.
+  16          Komande koje mogu da se posalju serijskom komunikacijom su:
+  17          ~ Start
+  18          ~ Stop
+  19          ~ Pomeraj za odredjen broj nitni
+  20          Na displeju ispisati u prvom redu status gramofona a u drugom odgovarajuce parametre. 
+  21          */
+  22          
+  23          #include "tipovi.h"
+  24          #include "gpio.h"
+  25          #include "prekidi.h"
+  26          #include "serijska.h"
+  27          #include "cobs_protokol.h"
+  28          #include "display.h"
+  29          
+  30          uint8_t mod;
+  31          
+  32          int8_t status;
+  33          int16_t brojac_prekida;
+  34          uint8_t tajmer = 0;
+  35          
+  36          uint8_t brojacZaTaster=0;
+  37          uint8_t trenutno_hardversko_stanje_P0_0=1;
+  38          uint8_t prethodno_hardversko_stanje_P0_0=1;
+  39          uint8_t trenutno_softversko_P0_0=1;
+  40          
+  41          uint8_t trenutno_hardversko_stanje_P0_1=1;
+  42          uint8_t prethodno_hardversko_stanje_P0_1=1;
+  43          uint8_t trenutno_softversko_P0_1=1;
+  44          
+  45          uint8_t trenutno_hardversko_stanje_P0_2=1;
+  46          uint8_t prethodno_hardversko_stanje_P0_2=1;
+  47          uint8_t trenutno_softversko_P0_2=1;
+  48          
+  49          uint8_t trenutno_hardversko_stanje_P0_3=1;
+  50          uint8_t prethodno_hardversko_stanje_P0_3=1;
+  51          uint8_t trenutno_softversko_P0_3=1;
+  52          
+  53          void interrupt_t1(void) interrupt 3 {  
+  54   1              TL1 = 0x48;
+  55   1              TH1 = 0x48;
+C51 COMPILER V8.16   MAIN                                                                  06/01/2025 16:55:03 PAGE 2   
+
+  56   1              if (++brojac_prekida == 4650) {
+  57   2                      tajmer += 1;                            // svaki put kad tajmer izbroji 1s
+  58   2                      status = 1;
+  59   2                      brojac_prekida = 0;
+  60   2              }
+  61   1              //DEBOUNCING
+  62   1         //P0_0 taster  ' start / stop '
+  63   1         trenutno_hardversko_stanje_P0_0=P0_0;
+  64   1         if(trenutno_hardversko_stanje_P0_0 == prethodno_hardversko_stanje_P0_0){
+  65   2                      if(++brojacZaTaster == 5){
+  66   3                              trenutno_softversko_P0_0 = trenutno_hardversko_stanje_P0_0;
+  67   3                              brojacZaTaster=0;
+  68   3                      }
+  69   2              }
+  70   1              else{
+  71   2                      brojacZaTaster=0;
+  72   2              }
+  73   1              prethodno_hardversko_stanje_P0_0 = trenutno_hardversko_stanje_P0_0;
+  74   1      
+  75   1              //P0_1 taster   ' mod1 / mod2 '
+  76   1              trenutno_hardversko_stanje_P0_1=P0_1;
+  77   1              if(trenutno_hardversko_stanje_P0_1 == prethodno_hardversko_stanje_P0_1){
+  78   2                      if(++brojacZaTaster == 5){
+  79   3                              trenutno_softversko_P0_1 = trenutno_hardversko_stanje_P0_1;
+  80   3                              brojacZaTaster=0;
+  81   3                      }
+  82   2              }
+  83   1              else{
+  84   2                      brojacZaTaster=0;
+  85   2              }
+  86   1              prethodno_hardversko_stanje_P0_1 = trenutno_hardversko_stanje_P0_1;
+  87   1      
+  88   1              //P0_2 taster   ' detektovana nitna '
+  89   1              trenutno_hardversko_stanje_P0_2=P0_2;
+  90   1              if(trenutno_hardversko_stanje_P0_2 == prethodno_hardversko_stanje_P0_2){
+  91   2                      if(++brojacZaTaster == 5){
+  92   3                              trenutno_softversko_P0_2 = trenutno_hardversko_stanje_P0_2;
+  93   3                              brojacZaTaster=0;
+  94   3                      }
+  95   2              }
+  96   1              else{
+  97   2                      brojacZaTaster=0;
+  98   2              }
+  99   1              prethodno_hardversko_stanje_P0_2 = trenutno_hardversko_stanje_P0_2;
+ 100   1      
+ 101   1              //P0_3 taster   ' pun krug motora '
+ 102   1              trenutno_hardversko_stanje_P0_3=P0_3;
+ 103   1              if(trenutno_hardversko_stanje_P0_3 == prethodno_hardversko_stanje_P0_3){
+ 104   2                      if(++brojacZaTaster == 5){
+ 105   3                              trenutno_softversko_P0_3 = trenutno_hardversko_stanje_P0_3;
+ 106   3                              brojacZaTaster=0;
+ 107   3                      }
+ 108   2              }
+ 109   1              else{
+ 110   2                      brojacZaTaster=0;
+ 111   2              }
+ 112   1              prethodno_hardversko_stanje_P0_3 = trenutno_hardversko_stanje_P0_3;
+ 113   1      }
+ 114          
+ 115          int8_t *num2str(int16_t broj){
+ 116   1              uint16_t i=0;
+ 117   1              uint16_t j;
+C51 COMPILER V8.16   MAIN                                                                  06/01/2025 16:55:03 PAGE 3   
+
+ 118   1              uint16_t ostatak;
+ 119   1              uint16_t len=0;
+ 120   1              uint16_t lenstr=0;
+ 121   1              int8_t str[8];
+ 122   1              int8_t pom[8];
+ 123   1              while(broj!=0){
+ 124   2                      ostatak=broj%10;        //cuva posljednju cifru broja
+ 125   2                      broj=broj/10;   
+ 126   2                      pom[i]=ostatak+48;
+ 127   2                      len++;
+ 128   2                      i++;
+ 129   2              }
+ 130   1              pom[len]='\0';
+ 131   1              lenstr=len;
+ 132   1              j=len-1;
+ 133   1              for(i=0; i<lenstr; i++, j--){
+ 134   2                      str[i]=pom[j];
+ 135   2              }
+ 136   1              str[lenstr]='\0';
+ 137   1              return str;
+ 138   1      }
+ 139          
+ 140          /*------------------------------PORUKE----------------------------------------------
+ 141          Odgovor OK-----> dekodirano-> 0x01--------> kodirano-> 0x02 0x01 0x00
+ 142          Odgovor GRESKA-> dekodirano-> 0x00--------> kodirano-> 0x01 0x01 0x00
+ 143          START----------> dekodirano-> 0x01 0x01---> kodirano-> 0x03 0x01 0x01 0x00
+ 144          STOP-----------> dekodirano-> 0x01 0x00---> kodirano-> 0x02 0x01 0x01 0x00
+ 145          N:0------------> dekodirano-> 0x02 0x00---> kodirano-> 0x02 0x02 0x01 0x00
+ 146          N:1------------> dekodirano-> 0x02 0x01---> kodirano-> 0x03 0x02 0x01 0x00
+ 147          N:2------------> dekodirano-> 0x02 0x02---> kodirano-> 0x03 0x02 0x02 0x00
+ 148          N:3------------> dekodirano-> 0x02 0x03---> kodirano-> 0x03 0x02 0x03 0x00
+ 149          N:4------------> dekodirano-> 0x02 0x04---> kodirano-> 0x03 0x02 0x04 0x00
+ 150          N:5------------> dekodirano-> 0x02 0x05---> kodirano-> 0x03 0x02 0x05 0x00
+ 151          N:6------------> dekodirano-> 0x02 0x06---> kodirano-> 0x03 0x02 0x06 0x00
+ 152          N:7------------> dekodirano-> 0x02 0x07---> kodirano-> 0x03 0x02 0x07 0x00
+ 153          N:8------------> dekodirano-> 0x02 0x08---> kodirano-> 0x03 0x02 0x08 0x00
+ 154          N:9------------> dekodirano-> 0x02 0x09---> kodirano-> 0x03 0x02 0x09 0x00
+ 155          --------------------------------------------------------------*/
+ 156          void main (void)
+ 157          {
+ 158   1               uint8_t niz[]={0x01,0x01,0x00};
+ 159   1               uint8_t nitna = 0;   // brojanje nitni u MOD1
+ 160   1               uint8_t nitna2 = 0;  // brojanje nitni u MOD2
+ 161   1               uint8_t trenutno_stanje_P0_0=1;
+ 162   1               uint8_t prethodno_stanje_P0_0=1;
+ 163   1               uint8_t trenutno_stanje_P0_1=1;
+ 164   1               uint8_t prethodno_stanje_P0_1=1;
+ 165   1               uint8_t trenutno_stanje_P0_2=1;
+ 166   1               uint8_t prethodno_stanje_P0_2=1;
+ 167   1               uint8_t trenutno_stanje_P0_3=1;
+ 168   1               uint8_t prethodno_stanje_P0_3=1;
+ 169   1         
+ 170   1              uint8_t* dekodirana_poruka  =   dekodiraj_poruku(niz);
+ 171   1              
+ 172   1              init_gpio();
+ 173   1               
+ 174   1          initDisplay();
+ 175   1              
+ 176   1              mod = 0;
+ 177   1              P2=0;
+ 178   1      
+ 179   1              TL1 = 0x48;
+C51 COMPILER V8.16   MAIN                                                                  06/01/2025 16:55:03 PAGE 4   
+
+ 180   1              TH1 = 0x48;
+ 181   1              TMOD = 0x20;
+ 182   1              TR1 = 1;
+ 183   1              ET1 = 1;
+ 184   1      
+ 185   1      
+ 186   1              CKCON0 &= 0xFE;
+ 187   1              init_serijska(0x80, 0x50, 0x1C, 253);
+ 188   1              omoguci_sve_prekide();
+ 189   1              omoguci_prekid_serijske(1);
+ 190   1      
+ 191   1              status = 0;
+ 192   1              brojac_prekida = 0;       
+ 193   1               
+ 194   1              while(1){
+ 195   2                      // P0_0  START / STOP
+ 196   2                      trenutno_stanje_P0_0=trenutno_softversko_P0_0;
+ 197   2                      if (trenutno_stanje_P0_0 > prethodno_stanje_P0_0) {
+ 198   3                              start_flag=~start_flag;
+ 199   3                              if(start_flag){
+ 200   4                                      brojac_prekida = 0;
+ 201   4                                      TL1 = 0x48;
+ 202   4                                      TH1 = 0x48;
+ 203   4                                      mod = 0;
+ 204   4                                      nitna = 0;
+ 205   4                                      nitna2 = 0;
+ 206   4                                      tajmer = 0;
+ 207   4                                      
+ 208   4                                      
+ 209   4                                      clearDisplay();
+ 210   4                                      writeLine("MOD 1");
+ 211   4                              }
+ 212   3                              else{
+ 213   4                      
+ 214   4                                      clearDisplay();
+ 215   4                                      writeLine("STOP");
+ 216   4                                      
+ 217   4                                      mod = 0;
+ 218   4                                      P2 = 0;
+ 219   4                              }
+ 220   3                      } 
+ 221   2                       
+ 222   2                      // P0_1 MOD1 / MOD2     (mod == 0x00 / 0xFF)
+ 223   2                      trenutno_stanje_P0_1=trenutno_softversko_P0_1;
+ 224   2                      if (trenutno_stanje_P0_1 > prethodno_stanje_P0_1) {
+ 225   3                              P2=0;
+ 226   3                              mod=~mod;
+ 227   3                              nitna = 0;
+ 228   3                              nitna2 = 0;
+ 229   3                              tajmer = 0;
+ 230   3                              if(mod){
+ 231   4                                      clearDisplay();
+ 232   4                                      writeLine("MOD 2");
+ 233   4                              }
+ 234   3                              else{
+ 235   4                                  clearDisplay();
+ 236   4                                      writeLine("MOD 1");
+ 237   4                              }
+ 238   3                      }
+ 239   2      
+ 240   2                      // P0_2 Detektovana nitna
+ 241   2                      trenutno_stanje_P0_2=trenutno_softversko_P0_2;
+C51 COMPILER V8.16   MAIN                                                                  06/01/2025 16:55:03 PAGE 5   
+
+ 242   2      
+ 243   2                      // P0_3 Pun krug
+ 244   2                      trenutno_stanje_P0_3=trenutno_softversko_P0_3;
+ 245   2                      
+ 246   2                      if(start_flag){
+ 247   3                              switch(mod){
+ 248   4                                      // MOD 1  Brojanje nitni
+ 249   4                                      case 0:
+ 250   4                                              if(status){
+ 251   5                                                      P2=0xFF;
+ 252   5                                                      if(trenutno_stanje_P0_2 > prethodno_stanje_P0_2){
+ 253   6                                                              nitna+=1;
+ 254   6                                                      }
+ 255   5                                                      if(trenutno_stanje_P0_3 > prethodno_stanje_P0_3){
+ 256   6                                                              //ispis posto je presao pun krug
+ 257   6                                                              clearDisplay();
+ 258   6                                                              writeLine("MOD 1");     
+ 259   6                                                              newLine();
+ 260   6                                                              //ako je proslo vise od 60s
+ 261   6                                                              if(tajmer>60){
+ 262   7                                                                      writeLine("timeout");
+ 263   7                                                              }
+ 264   6                                                              else{
+ 265   7                                                                      writeLine("n:");
+ 266   7                                                                      writeLine(num2str(nitna));
+ 267   7                                                                      writeLine(" ");
+ 268   7                                                                      writeLine(num2str(tajmer));
+ 269   7                                                                      writeLine("s");
+ 270   7                                                              }
+ 271   6                                                              tajmer=0;
+ 272   6                                                              nitna=0;
+ 273   6                                                      }
+ 274   5                                              }
+ 275   4                                              break;
+ 276   4                                      // MOD 2         Pozicioniranje za odredjen broj nitni
+ 277   4                                      case 0xFF:
+ 278   4                                              if(status){
+ 279   5                                                      if(nitna_flag!=0){
+ 280   6                                                              if (trenutno_stanje_P0_2 > prethodno_stanje_P0_2){
+ 281   7                                                                      nitna2+=1;
+ 282   7                                                              }
+ 283   6                                                              if(nitna2==nitna_flag){
+ 284   7                                                                      P2=0;                   
+ 285   7                                                                      clearDisplay();
+ 286   7                                                                      writeLine("MOD 2");     
+ 287   7                                                                      newLine();
+ 288   7                                                                      if(tajmer>60){
+ 289   8                                                                              writeLine("timeout");
+ 290   8                                                                      }
+ 291   7                                                                      else{
+ 292   8                                                                              writeLine(num2str(tajmer));
+ 293   8                                                                              writeLine("s");
+ 294   8                                                                      }
+ 295   7                                                                      tajmer=0;
+ 296   7                                                                      nitna2=0;
+ 297   7                                                                      nitna_flag=0;
+ 298   7                                                              }
+ 299   6                                                              else{
+ 300   7                                                                      P2=0xFF;
+ 301   7                                                              }
+ 302   6                                                      }
+ 303   5                                                      else{
+C51 COMPILER V8.16   MAIN                                                                  06/01/2025 16:55:03 PAGE 6   
+
+ 304   6                                                              P2=0x00;
+ 305   6                                                      }
+ 306   5                                              }
+ 307   4                                              break;
+ 308   4                                      default:
+ 309   4                                              P2=0x00;
+ 310   4                                              break;
+ 311   4                              }
+ 312   3                      }
+ 313   2               
+ 314   2              prethodno_stanje_P0_0 = trenutno_stanje_P0_0;
+ 315   2              prethodno_stanje_P0_1 = trenutno_stanje_P0_1;
+ 316   2              prethodno_stanje_P0_2 = trenutno_stanje_P0_2;
+ 317   2              prethodno_stanje_P0_3 = trenutno_stanje_P0_3;
+ 318   2              
+ 319   2              } 
+ 320   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    783    ----
+   CONSTANT SIZE    =     35    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     18      38
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,8 @@
+"main.obj",
+"cobs_protokol.obj",
+"prekidi.obj",
+"serijska.obj",
+"display.obj",
+"gpio.obj" 
+TO "Proba" 
+RAMSIZE(256) 
